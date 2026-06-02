@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yirgacheffe Coffee Estate — Farm Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .sidebar-link { transition: all 0.15s; }
+    .sidebar-link:hover, .sidebar-link.active { background: rgba(255,255,255,0.12); }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04); }
+    .badge-active  { background:#dcfce7; color:#166534; }
+    .badge-seasonal{ background:#fef9c3; color:#854d0e; }
+    .badge-leave   { background:#fee2e2; color:#991b1b; }
+    .badge-pending { background:#e0f2fe; color:#0c4a6e; }
+    .tab { cursor:pointer; padding:8px 18px; border-radius:8px; font-size:14px; font-weight:500; color:#6b7280; transition:all 0.15s; }
+    .tab.active { background:#1a3a2a; color:white; }
+    .tab:hover:not(.active) { background:#f3f4f6; }
+    .page { display:none; }
+    .page.active { display:block; }
+    .progress-bar { height:8px; border-radius:4px; background:#e5e7eb; overflow:hidden; }
+    .progress-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,#16a34a,#22c55e); transition:width 0.6s ease; }
+    .lot-step { position:relative; }
+    .lot-step:not(:last-child)::after {
+      content:''; position:absolute; top:20px; left:50%; width:100%; height:2px;
+      background:#d1fae5; transform:translateX(-50%); z-index:0;
+    }
+    .lot-step.done .step-circle { background:#16a34a; color:white; }
+    .lot-step.active .step-circle { background:#f59e0b; color:white; border:2px solid #d97706; }
+    .lot-step .step-circle { background:#e5e7eb; color:#6b7280; }
+    .step-circle { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; position:relative; z-index:1; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .pulse { animation: pulse 2s infinite; }
+    .map-plot { cursor:pointer; transition:all 0.2s; }
+    .map-plot:hover { filter:brightness(1.15); transform:scale(1.03); }
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-track { background:#f1f5f9; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+<!-- LAYOUT -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="w-64 flex-shrink-0 flex flex-col" style="background:linear-gradient(180deg,#1a3a2a 0%,#0f2419 100%);">
+    <div class="px-6 py-5 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center text-lg" style="background:#16a34a;">☕</div>
+        <div>
+          <div class="text-white font-semibold text-sm leading-tight">Yirgacheffe</div>
+          <div class="text-green-300 text-xs">Coffee Estate</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <p class="text-xs font-semibold text-green-500 uppercase tracking-wider px-3 mb-2">Main</p>
+      <a class="sidebar-link active flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-white text-sm" onclick="navigate('dashboard')">
+        <span class="text-lg">📊</span> Dashboard
+      </a>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('workers')">
+        <span class="text-lg">👷</span> Labor & Workers
+      </a>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('attendance')">
+        <span class="text-lg">✅</span> Attendance & Harvest
+      </a>
+      <p class="text-xs font-semibold text-green-500 uppercase tracking-wider px-3 mb-2 mt-4">Farm</p>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('plots')">
+        <span class="text-lg">🗺️</span> Farm Plots
+      </a>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('tasks')">
+        <span class="text-lg">📋</span> Task Management
+      </a>
+      <p class="text-xs font-semibold text-green-500 uppercase tracking-wider px-3 mb-2 mt-4">Supply Chain</p>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('supplychain')">
+        <span class="text-lg">🔗</span> Lot Traceability
+      </a>
+      <a class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-green-200 text-sm" onclick="navigate('payroll')">
+        <span class="text-lg">💰</span> Payroll
+      </a>
+    </nav>
+
+    <div class="px-4 py-4 border-t border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-sm font-bold">AM</div>
+        <div>
+          <div class="text-white text-sm font-medium">Abebe Mulat</div>
+          <div class="text-green-400 text-xs">Farm Manager</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- TOP BAR -->
+    <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div>
+        <h1 id="page-title" class="text-xl font-semibold text-gray-900">Dashboard</h1>
+        <p class="text-xs text-gray-400 mt-0.5">Monday, 2 June 2026 — Harvest Season Active</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 bg-green-50 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-green-500 pulse inline-block"></span>
+          Season: Main Harvest
+        </div>
+        <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-lg cursor-pointer">🔔</div>
+      </div>
+    </header>
+
+    <div class="px-8 py-6">
+
+      <!-- ===== DASHBOARD PAGE ===== -->
+      <div id="page-dashboard" class="page active">
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm text-gray-500">Workers Today</span>
+              <span class="text-2xl">👷</span>
+            </div>
+            <div class="text-3xl font-bold text-gray-900">87</div>
+            <div class="text-xs text-green-600 mt-1">↑ 6 vs yesterday</div>
+            <div class="progress-bar mt-3"><div class="progress-fill" style="width:87%"></div></div>
+            <div class="text-xs text-gray-400 mt-1">87 / 100 scheduled</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm text-gray-500">Harvest Today</span>
+              <span class="text-2xl">☕</span>
+            </div>
+            <div class="text-3xl font-bold text-gray-900">4,320 kg</div>
+            <div class="text-xs text-green-600 mt-1">↑ 12% vs avg</div>
+            <div class="progress-bar mt-3"><div class="progress-fill" style="width:72%"></div></div>
+            <div class="text-xs text-gray-400 mt-1">Target: 6,000 kg/day</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm text-gray-500">Active Plots</span>
+              <span class="text-2xl">🌿</span>
+            </div>
+            <div class="text-3xl font-bold text-gray-900">12 / 18</div>
+            <div class="text-xs text-amber-600 mt-1">6 plots resting</div>
+            <div class="progress-bar mt-3"><div class="progress-fill" style="width:67%"></div></div>
+            <div class="text-xs text-gray-400 mt-1">67% of farm active</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm text-gray-500">Payroll This Week</span>
+              <span class="text-2xl">💵</span>
+            </div>
+            <div class="text-3xl font-bold text-gray-900">ETB 142,800</div>
+            <div class="text-xs text-gray-500 mt-1">≈ USD 1,020</div>
+            <div class="progress-bar mt-3"><div class="progress-fill" style="width:58%"></div></div>
+            <div class="text-xs text-gray-400 mt-1">Week 3 of 4 complete</div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-5 col-span-2">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-gray-800">Daily Harvest — Last 14 Days (kg)</h3>
+              <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">Cherry Weight</span>
+            </div>
+            <canvas id="harvestChart" height="110"></canvas>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-gray-800 mb-4">Workers by Type</h3>
+            <canvas id="workerTypeChart" height="160"></canvas>
+            <div class="mt-4 space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm inline-block" style="background:#16a34a"></span>Permanent</span>
+                <span class="font-semibold">34</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm inline-block" style="background:#f59e0b"></span>Seasonal</span>
+                <span class="font-semibold">58</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm inline-block" style="background:#6366f1"></span>Supervisors</span>
+                <span class="font-semibold">8</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Recent Activity -->
+          <div class="card p-5">
+            <h3 class="font-semibold text-gray-800 mb-4">Recent Field Activity</h3>
+            <div class="space-y-3">
+              <div class="flex items-start gap-3 text-sm">
+                <span class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-base flex-shrink-0">⚖️</span>
+                <div><span class="font-medium">Harvest weighed — Plot A3</span><br/><span class="text-gray-400 text-xs">320 kg cherry · 14 pickers · 10 min ago</span></div>
+              </div>
+              <div class="flex items-start gap-3 text-sm">
+                <span class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-base flex-shrink-0">✅</span>
+                <div><span class="font-medium">Attendance synced — Section B</span><br/><span class="text-gray-400 text-xs">24 workers checked in · 32 min ago</span></div>
+              </div>
+              <div class="flex items-start gap-3 text-sm">
+                <span class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-base flex-shrink-0">🚛</span>
+                <div><span class="font-medium">Lot YRG-2026-041 transferred</span><br/><span class="text-gray-400 text-xs">1,200 kg → Wet Mill · 1 hr ago</span></div>
+              </div>
+              <div class="flex items-start gap-3 text-sm">
+                <span class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-base flex-shrink-0">🌱</span>
+                <div><span class="font-medium">Fertilizer applied — Plot D1, D2</span><br/><span class="text-gray-400 text-xs">40 kg NPK used · 2 hrs ago</span></div>
+              </div>
+              <div class="flex items-start gap-3 text-sm">
+                <span class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-base flex-shrink-0">👤</span>
+                <div><span class="font-medium">3 new seasonal workers onboarded</span><br/><span class="text-gray-400 text-xs">From Gedeo Zone · 3 hrs ago</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Pickers -->
+          <div class="card p-5">
+            <h3 class="font-semibold text-gray-800 mb-4">Top Pickers Today</h3>
+            <div class="space-y-3">
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-amber-500 text-sm">1</span>
+                <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold">TH</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm"><span class="font-medium">Tigist Haile</span><span class="font-semibold text-green-700">68 kg</span></div>
+                  <div class="progress-bar mt-1"><div class="progress-fill" style="width:100%"></div></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-gray-400 text-sm">2</span>
+                <div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">BG</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm"><span class="font-medium">Bekele Girma</span><span class="font-semibold text-green-700">61 kg</span></div>
+                  <div class="progress-bar mt-1"><div class="progress-fill" style="width:90%"></div></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-gray-400 text-sm">3</span>
+                <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">AW</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm"><span class="font-medium">Almaz Wolde</span><span class="font-semibold text-green-700">57 kg</span></div>
+                  <div class="progress-bar mt-1"><div class="progress-fill" style="width:84%"></div></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-gray-400 text-sm">4</span>
+                <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs font-bold">DT</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm"><span class="font-medium">Dawit Tadesse</span><span class="font-semibold text-green-700">54 kg</span></div>
+                  <div class="progress-bar mt-1"><div class="progress-fill" style="width:79%"></div></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center font-bold text-gray-400 text-sm">5</span>
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">MK</div>
+                <div class="flex-1">
+                  <div class="flex justify-between text-sm"><span class="font-medium">Meron Kebede</span><span class="font-semibold text-green-700">51 kg</span></div>
+                  <div class="progress-bar mt-1"><div class="progress-fill" style="width:75%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== WORKERS PAGE ===== -->
+      <div id="page-workers" class="page">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex gap-2">
+            <span class="tab active" onclick="filterWorkers('all',this)">All (100)</span>
+            <span class="tab" onclick="filterWorkers('permanent',this)">Permanent (34)</span>
+            <span class="tab" onclick="filterWorkers('seasonal',this)">Seasonal (58)</span>
+            <span class="tab" onclick="filterWorkers('supervisors',this)">Supervisors (8)</span>
+          </div>
+          <button class="bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600">+ Recruit Worker</button>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-100">
+                <th class="text-left px-5 py-3 font-semibold text-gray-600">Worker</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">ID</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">Type</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">Section</th>
+                <th class="text-right px-4 py-3 font-semibold text-gray-600">This Week</th>
+                <th class="text-right px-4 py-3 font-semibold text-gray-600">Total Season</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
+              </tr>
+            </thead>
+            <tbody id="workers-table">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== ATTENDANCE PAGE ===== -->
+      <div id="page-attendance" class="page">
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="card p-5 col-span-2">
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-semibold">Today's Attendance — 2 June 2026</h3>
+              <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">⚡ Last sync: 8 min ago</span>
+            </div>
+            <p class="text-xs text-gray-400 mb-4">Field tablets sync when connected. Offline entries shown in amber.</p>
+            <div class="grid grid-cols-3 gap-3 mb-5">
+              <div class="bg-green-50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-green-700">87</div>
+                <div class="text-xs text-green-600 mt-1">Present</div>
+              </div>
+              <div class="bg-red-50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-red-600">9</div>
+                <div class="text-xs text-red-500 mt-1">Absent</div>
+              </div>
+              <div class="bg-amber-50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-bold text-amber-600">4</div>
+                <div class="text-xs text-amber-600 mt-1">Pending Sync</div>
+              </div>
+            </div>
+            <canvas id="attendanceWeekChart" height="90"></canvas>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold mb-4">Harvest Log — Today</h3>
+            <div class="space-y-3">
+              <div class="bg-gray-50 rounded-lg p-3">
+                <div class="flex justify-between text-sm font-medium"><span>Plot A1</span><span class="text-green-700">480 kg</span></div>
+                <div class="text-xs text-gray-400">12 pickers · 09:15 AM</div>
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3">
+                <div class="flex justify-between text-sm font-medium"><span>Plot A3</span><span class="text-green-700">320 kg</span></div>
+                <div class="text-xs text-gray-400">14 pickers · 10:40 AM</div>
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3">
+                <div class="flex justify-between text-sm font-medium"><span>Plot B2</span><span class="text-green-700">410 kg</span></div>
+                <div class="text-xs text-gray-400">11 pickers · 11:20 AM</div>
+              </div>
+              <div class="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                <div class="flex justify-between text-sm font-medium"><span>Plot C1</span><span class="text-amber-600">— pending</span></div>
+                <div class="text-xs text-amber-500">Offline · awaiting sync</div>
+              </div>
+              <div class="bg-gray-50 rounded-lg p-3">
+                <div class="flex justify-between text-sm font-medium"><span>Plot D2</span><span class="text-green-700">290 kg</span></div>
+                <div class="text-xs text-gray-400">8 pickers · 01:05 PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PLOTS PAGE ===== -->
+      <div id="page-plots" class="page">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="card p-5 col-span-2">
+            <h3 class="font-semibold mb-4">Farm Plot Map — Yirgacheffe Estate (18 plots · 42 ha)</h3>
+            <div class="relative bg-green-50 rounded-xl overflow-hidden" style="height:360px;">
+              <!-- Simple SVG map -->
+              <svg viewBox="0 0 600 360" class="w-full h-full">
+                <!-- Background terrain -->
+                <rect width="600" height="360" fill="#f0fdf4"/>
+                <!-- River -->
+                <path d="M 0 220 Q 150 200 300 210 Q 450 220 600 205" stroke="#93c5fd" stroke-width="8" fill="none" opacity="0.5"/>
+                <text x="130" y="240" fill="#60a5fa" font-size="10" opacity="0.7">Gedeo River</text>
+                <!-- Section A Plots -->
+                <rect class="map-plot" x="30" y="30" width="80" height="60" rx="6" fill="#16a34a" opacity="0.85" onclick="showPlot('A1')"/>
+                <text x="70" y="65" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">A1</text>
+                <rect class="map-plot" x="125" y="30" width="80" height="60" rx="6" fill="#16a34a" opacity="0.85" onclick="showPlot('A2')"/>
+                <text x="165" y="65" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">A2</text>
+                <rect class="map-plot" x="220" y="30" width="80" height="60" rx="6" fill="#16a34a" opacity="0.85" onclick="showPlot('A3')"/>
+                <text x="260" y="65" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">A3</text>
+                <!-- Section B -->
+                <rect class="map-plot" x="30" y="110" width="80" height="70" rx="6" fill="#15803d" opacity="0.85" onclick="showPlot('B1')"/>
+                <text x="70" y="150" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">B1</text>
+                <rect class="map-plot" x="125" y="110" width="80" height="70" rx="6" fill="#15803d" opacity="0.85" onclick="showPlot('B2')"/>
+                <text x="165" y="150" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">B2</text>
+                <rect class="map-plot" x="220" y="110" width="80" height="70" rx="6" fill="#15803d" opacity="0.85" onclick="showPlot('B3')"/>
+                <text x="260" y="150" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">B3</text>
+                <!-- Section C -->
+                <rect class="map-plot" x="330" y="30" width="75" height="65" rx="6" fill="#166534" opacity="0.85" onclick="showPlot('C1')"/>
+                <text x="367" y="67" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">C1</text>
+                <rect class="map-plot" x="420" y="30" width="75" height="65" rx="6" fill="#166534" opacity="0.85" onclick="showPlot('C2')"/>
+                <text x="457" y="67" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">C2</text>
+                <rect class="map-plot" x="510" y="30" width="75" height="65" rx="6" fill="#166534" opacity="0.85" onclick="showPlot('C3')"/>
+                <text x="547" y="67" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">C3</text>
+                <!-- Section D - some resting -->
+                <rect class="map-plot" x="330" y="110" width="75" height="65" rx="6" fill="#6b7280" opacity="0.6" onclick="showPlot('D1')"/>
+                <text x="367" y="147" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">D1</text>
+                <text x="367" y="160" text-anchor="middle" fill="#d1d5db" font-size="9" pointer-events="none">Resting</text>
+                <rect class="map-plot" x="420" y="110" width="75" height="65" rx="6" fill="#6b7280" opacity="0.6" onclick="showPlot('D2')"/>
+                <text x="457" y="147" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">D2</text>
+                <text x="457" y="160" text-anchor="middle" fill="#d1d5db" font-size="9" pointer-events="none">Resting</text>
+                <!-- Below river - Section E -->
+                <rect class="map-plot" x="60" y="255" width="90" height="70" rx="6" fill="#16a34a" opacity="0.75" onclick="showPlot('E1')"/>
+                <text x="105" y="294" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">E1</text>
+                <rect class="map-plot" x="165" y="255" width="90" height="70" rx="6" fill="#16a34a" opacity="0.75" onclick="showPlot('E2')"/>
+                <text x="210" y="294" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">E2</text>
+                <rect class="map-plot" x="270" y="255" width="90" height="70" rx="6" fill="#16a34a" opacity="0.75" onclick="showPlot('E3')"/>
+                <text x="315" y="294" text-anchor="middle" fill="white" font-size="12" font-weight="600" pointer-events="none">E3</text>
+                <!-- Wet Mill -->
+                <rect x="450" y="255" width="120" height="70" rx="8" fill="#f59e0b" opacity="0.9"/>
+                <text x="510" y="287" text-anchor="middle" fill="white" font-size="11" font-weight="700" pointer-events="none">🏭 Wet Mill</text>
+                <text x="510" y="305" text-anchor="middle" fill="white" font-size="9" pointer-events="none">Collection Point</text>
+                <!-- Legend -->
+                <rect x="10" y="330" width="12" height="12" rx="2" fill="#16a34a"/>
+                <text x="27" y="341" fill="#374151" font-size="10">Active</text>
+                <rect x="75" y="330" width="12" height="12" rx="2" fill="#6b7280"/>
+                <text x="92" y="341" fill="#374151" font-size="10">Resting</text>
+                <rect x="140" y="330" width="12" height="12" rx="2" fill="#f59e0b"/>
+                <text x="157" y="341" fill="#374151" font-size="10">Processing</text>
+              </svg>
+            </div>
+          </div>
+          <div class="card p-5" id="plot-detail">
+            <h3 class="font-semibold mb-1">Plot Details</h3>
+            <p class="text-xs text-gray-400 mb-4">Click a plot on the map</p>
+            <div id="plot-detail-content">
+              <div class="text-center py-8 text-gray-300">
+                <div class="text-4xl mb-2">🗺️</div>
+                <div class="text-sm">Select a plot</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TASKS PAGE ===== -->
+      <div id="page-tasks" class="page">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex gap-2">
+            <span class="tab active">Today</span>
+            <span class="tab">This Week</span>
+            <span class="tab">Upcoming</span>
+          </div>
+          <button class="bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Assign Task</button>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">To Do (3)</div>
+            <div class="space-y-3">
+              <div class="card p-4 border-l-4 border-blue-400">
+                <div class="text-sm font-semibold">Pesticide spray — Plot C2</div>
+                <div class="text-xs text-gray-400 mt-1">Assigned to: Section C crew · 4 workers</div>
+                <div class="text-xs text-amber-600 mt-2 font-medium">⏰ Due: Today 3:00 PM</div>
+              </div>
+              <div class="card p-4 border-l-4 border-blue-400">
+                <div class="text-sm font-semibold">Irrigation check — Section E</div>
+                <div class="text-xs text-gray-400 mt-1">Assigned to: Yonas Bekele</div>
+                <div class="text-xs text-gray-400 mt-2">Due: Today EOD</div>
+              </div>
+              <div class="card p-4 border-l-4 border-blue-400">
+                <div class="text-sm font-semibold">New worker orientation</div>
+                <div class="text-xs text-gray-400 mt-1">HR Admin · 3 new hires</div>
+                <div class="text-xs text-gray-400 mt-2">Due: Today 2:00 PM</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">In Progress (4)</div>
+            <div class="space-y-3">
+              <div class="card p-4 border-l-4 border-amber-400">
+                <div class="text-sm font-semibold">Cherry picking — Plot A1, A2, A3</div>
+                <div class="text-xs text-gray-400 mt-1">36 workers assigned</div>
+                <div class="progress-bar mt-2"><div class="progress-fill" style="width:65%"></div></div>
+                <div class="text-xs text-gray-400 mt-1">65% complete · ~800 kg remaining</div>
+              </div>
+              <div class="card p-4 border-l-4 border-amber-400">
+                <div class="text-sm font-semibold">Fertilizer application — D1, D2</div>
+                <div class="text-xs text-gray-400 mt-1">Agronomist team · 6 workers</div>
+                <div class="progress-bar mt-2"><div class="progress-fill" style="width:80%"></div></div>
+                <div class="text-xs text-gray-400 mt-1">80% complete</div>
+              </div>
+              <div class="card p-4 border-l-4 border-amber-400">
+                <div class="text-sm font-semibold">Wet mill processing — Lot 041</div>
+                <div class="text-xs text-gray-400 mt-1">Mill team · 8 workers</div>
+                <div class="progress-bar mt-2"><div class="progress-fill" style="width:45%"></div></div>
+                <div class="text-xs text-gray-400 mt-1">Fermentation: 18h remaining</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Done Today (5)</div>
+            <div class="space-y-3">
+              <div class="card p-4 border-l-4 border-green-400 opacity-75">
+                <div class="text-sm font-semibold line-through text-gray-400">Morning attendance — All sections</div>
+                <div class="text-xs text-green-600 mt-1">✓ Completed 07:30 AM</div>
+              </div>
+              <div class="card p-4 border-l-4 border-green-400 opacity-75">
+                <div class="text-sm font-semibold line-through text-gray-400">Transport — Lot 040 to dry mill</div>
+                <div class="text-xs text-green-600 mt-1">✓ Completed 09:15 AM</div>
+              </div>
+              <div class="card p-4 border-l-4 border-green-400 opacity-75">
+                <div class="text-sm font-semibold line-through text-gray-400">Quality check — B section cherries</div>
+                <div class="text-xs text-green-600 mt-1">✓ Completed 10:00 AM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SUPPLY CHAIN PAGE ===== -->
+      <div id="page-supplychain" class="page">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex gap-2">
+            <span class="tab active">Active Lots</span>
+            <span class="tab">Completed</span>
+            <span class="tab">All Season</span>
+          </div>
+          <div class="text-sm text-gray-500">Season total: <strong>47 lots · 52,400 kg</strong></div>
+        </div>
+
+        <!-- Active Lot Tracker -->
+        <div class="space-y-4">
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="flex items-center gap-3">
+                  <span class="font-bold text-lg">LOT YRG-2026-041</span>
+                  <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded font-medium">In Process</span>
+                </div>
+                <div class="text-sm text-gray-400 mt-1">Origin: Plot A1, A2 · Picked 01 Jun 2026 · 1,200 kg cherry</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-gray-500">Est. green bean yield</div>
+                <div class="text-xl font-bold text-green-700">~192 kg</div>
+                <div class="text-xs text-gray-400">~16% ratio</div>
+              </div>
+            </div>
+            <!-- Traceability Steps -->
+            <div class="flex justify-between items-start">
+              <div class="lot-step done text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🌿</div>
+                <div class="text-xs font-semibold">Farm Picked</div>
+                <div class="text-xs text-gray-400 mt-1">01 Jun · Plot A1,A2</div>
+                <div class="text-xs text-green-600">1,200 kg</div>
+              </div>
+              <div class="lot-step done text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">⚖️</div>
+                <div class="text-xs font-semibold">Weighed</div>
+                <div class="text-xs text-gray-400 mt-1">01 Jun 14:30</div>
+                <div class="text-xs text-green-600">1,198 kg</div>
+              </div>
+              <div class="lot-step active text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🏭</div>
+                <div class="text-xs font-semibold">Wet Mill</div>
+                <div class="text-xs text-gray-400 mt-1">02 Jun · Active</div>
+                <div class="text-xs text-amber-600">Fermenting 6h</div>
+              </div>
+              <div class="lot-step text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">☀️</div>
+                <div class="text-xs font-semibold">Dry Mill</div>
+                <div class="text-xs text-gray-400 mt-1">Pending</div>
+                <div class="text-xs text-gray-400">~21–28 days</div>
+              </div>
+              <div class="lot-step text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🚢</div>
+                <div class="text-xs font-semibold">Export</div>
+                <div class="text-xs text-gray-400 mt-1">Pending</div>
+                <div class="text-xs text-gray-400">Est. Aug 2026</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="flex items-center gap-3">
+                  <span class="font-bold text-lg">LOT YRG-2026-039</span>
+                  <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">Drying</span>
+                </div>
+                <div class="text-sm text-gray-400 mt-1">Origin: Plot B2, B3 · Picked 28 May 2026 · 980 kg cherry</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-gray-500">Est. green bean yield</div>
+                <div class="text-xl font-bold text-green-700">~157 kg</div>
+                <div class="text-xs text-gray-400">~16% ratio</div>
+              </div>
+            </div>
+            <div class="flex justify-between items-start">
+              <div class="lot-step done text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🌿</div>
+                <div class="text-xs font-semibold">Farm Picked</div>
+                <div class="text-xs text-gray-400 mt-1">28 May · Plot B2,B3</div>
+                <div class="text-xs text-green-600">980 kg</div>
+              </div>
+              <div class="lot-step done text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">⚖️</div>
+                <div class="text-xs font-semibold">Weighed</div>
+                <div class="text-xs text-gray-400 mt-1">28 May 15:00</div>
+                <div class="text-xs text-green-600">979 kg</div>
+              </div>
+              <div class="lot-step done text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🏭</div>
+                <div class="text-xs font-semibold">Wet Mill</div>
+                <div class="text-xs text-gray-400 mt-1">29–30 May</div>
+                <div class="text-xs text-green-600">Complete</div>
+              </div>
+              <div class="lot-step active text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">☀️</div>
+                <div class="text-xs font-semibold">Dry Mill</div>
+                <div class="text-xs text-gray-400 mt-1">Day 4 of 21</div>
+                <div class="text-xs text-amber-600">Moisture: 18%</div>
+              </div>
+              <div class="lot-step text-center w-1/5">
+                <div class="step-circle mx-auto mb-2">🚢</div>
+                <div class="text-xs font-semibold">Export</div>
+                <div class="text-xs text-gray-400 mt-1">Pending</div>
+                <div class="text-xs text-gray-400">Est. Jul 2026</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-6">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="flex items-center gap-3">
+                  <span class="font-bold text-lg">LOT YRG-2026-031</span>
+                  <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">Ready to Export</span>
+                </div>
+                <div class="text-sm text-gray-400 mt-1">Origin: Plot A3, C1 · Picked 10 May 2026 · Grade 1 Washed · Buyer: Nordic Roasters AB</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-gray-500">Green bean</div>
+                <div class="text-xl font-bold text-green-700">168 kg</div>
+                <div class="text-xs text-green-600">Cupping: 87.5 pts</div>
+              </div>
+            </div>
+            <div class="flex justify-between items-start">
+              <div class="lot-step done text-center w-1/5"><div class="step-circle mx-auto mb-2">🌿</div><div class="text-xs font-semibold">Farm Picked</div><div class="text-xs text-green-600">Complete</div></div>
+              <div class="lot-step done text-center w-1/5"><div class="step-circle mx-auto mb-2">⚖️</div><div class="text-xs font-semibold">Weighed</div><div class="text-xs text-green-600">Complete</div></div>
+              <div class="lot-step done text-center w-1/5"><div class="step-circle mx-auto mb-2">🏭</div><div class="text-xs font-semibold">Wet Mill</div><div class="text-xs text-green-600">Complete</div></div>
+              <div class="lot-step done text-center w-1/5"><div class="step-circle mx-auto mb-2">☀️</div><div class="text-xs font-semibold">Dry Mill</div><div class="text-xs text-green-600">11.2% moisture</div></div>
+              <div class="lot-step active text-center w-1/5"><div class="step-circle mx-auto mb-2">🚢</div><div class="text-xs font-semibold">Export</div><div class="text-xs text-amber-600">Awaiting docs</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAYROLL PAGE ===== -->
+      <div id="page-payroll" class="page">
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="card p-5 col-span-2">
+            <h3 class="font-semibold mb-4">Payroll Summary — June 2026</h3>
+            <canvas id="payrollChart" height="120"></canvas>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold mb-3">This Week</h3>
+            <div class="space-y-3 text-sm">
+              <div class="flex justify-between"><span class="text-gray-500">Permanent (34)</span><span class="font-semibold">ETB 54,400</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Seasonal — piece rate</span><span class="font-semibold">ETB 72,400</span></div>
+              <div class="flex justify-between"><span class="text-gray-500">Supervisors (8)</span><span class="font-semibold">ETB 16,000</span></div>
+              <div class="border-t pt-2 flex justify-between font-bold"><span>Total</span><span class="text-green-700">ETB 142,800</span></div>
+              <div class="flex justify-between text-xs text-gray-400"><span>USD equivalent</span><span>≈ USD 1,020</span></div>
+            </div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold mb-3">Payment Status</h3>
+            <div class="space-y-3 text-sm">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">M-Pesa sent</span>
+                <span class="badge-active px-2 py-0.5 rounded text-xs font-medium">62 workers</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">Bank transfer</span>
+                <span class="badge-active px-2 py-0.5 rounded text-xs font-medium">22 workers</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">Pending</span>
+                <span class="badge-pending px-2 py-0.5 rounded text-xs font-medium">16 workers</span>
+              </div>
+              <div class="pt-2">
+                <button class="w-full bg-green-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-600">Run Payroll</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="font-semibold">Individual Payroll — Week of 26 May – 1 Jun</h3>
+            <button class="text-sm text-green-700 font-medium border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-50">Export CSV</button>
+          </div>
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 border-b border-gray-100">
+              <th class="text-left px-5 py-3 font-semibold text-gray-600">Worker</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-600">Days</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-600">kg Picked</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-600">Rate</th>
+              <th class="text-right px-4 py-3 font-semibold text-gray-600">Amount (ETB)</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-5 py-3"><div class="font-medium">Tigist Haile</div><div class="text-xs text-gray-400">Seasonal · Section A</div></td>
+                <td class="px-4 py-3 text-right">6</td><td class="px-4 py-3 text-right">384 kg</td>
+                <td class="px-4 py-3 text-right text-xs text-gray-500">ETB 4/kg</td>
+                <td class="px-4 py-3 text-right font-semibold text-green-700">1,536</td>
+                <td class="px-4 py-3"><span class="badge-active px-2 py-0.5 rounded text-xs">Paid</span></td>
+              </tr>
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-5 py-3"><div class="font-medium">Bekele Girma</div><div class="text-xs text-gray-400">Permanent · Section B</div></td>
+                <td class="px-4 py-3 text-right">6</td><td class="px-4 py-3 text-right">—</td>
+                <td class="px-4 py-3 text-right text-xs text-gray-500">ETB 280/day</td>
+                <td class="px-4 py-3 text-right font-semibold text-green-700">1,680</td>
+                <td class="px-4 py-3"><span class="badge-active px-2 py-0.5 rounded text-xs">Paid</span></td>
+              </tr>
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-5 py-3"><div class="font-medium">Almaz Wolde</div><div class="text-xs text-gray-400">Seasonal · Section C</div></td>
+                <td class="px-4 py-3 text-right">5</td><td class="px-4 py-3 text-right">285 kg</td>
+                <td class="px-4 py-3 text-right text-xs text-gray-500">ETB 4/kg</td>
+                <td class="px-4 py-3 text-right font-semibold text-green-700">1,140</td>
+                <td class="px-4 py-3"><span class="badge-pending px-2 py-0.5 rounded text-xs">Pending</span></td>
+              </tr>
+              <tr class="border-b border-gray-50 hover:bg-gray-50">
+                <td class="px-5 py-3"><div class="font-medium">Dawit Tadesse</div><div class="text-xs text-gray-400">Supervisor · Section A</div></td>
+                <td class="px-4 py-3 text-right">6</td><td class="px-4 py-3 text-right">—</td>
+                <td class="px-4 py-3 text-right text-xs text-gray-500">ETB 400/day</td>
+                <td class="px-4 py-3 text-right font-semibold text-green-700">2,400</td>
+                <td class="px-4 py-3"><span class="badge-active px-2 py-0.5 rounded text-xs">Paid</span></td>
+              </tr>
+              <tr class="hover:bg-gray-50">
+                <td class="px-5 py-3"><div class="font-medium">Meron Kebede</div><div class="text-xs text-gray-400">Seasonal · Section B</div></td>
+                <td class="px-4 py-3 text-right">6</td><td class="px-4 py-3 text-right">306 kg</td>
+                <td class="px-4 py-3 text-right text-xs text-gray-500">ETB 4/kg</td>
+                <td class="px-4 py-3 text-right font-semibold text-green-700">1,224</td>
+                <td class="px-4 py-3"><span class="badge-active px-2 py-0.5 rounded text-xs">Paid</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /px-8 -->
+  </main>
+</div>
+
+<script>
+// ---- NAVIGATION ----
+const pages = {
+  dashboard: 'Dashboard',
+  workers: 'Labor & Workers',
+  attendance: 'Attendance & Harvest',
+  plots: 'Farm Plots',
+  tasks: 'Task Management',
+  supplychain: 'Supply Chain — Lot Traceability',
+  payroll: 'Payroll'
+};
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('page-title').textContent = pages[page];
+  event.currentTarget.classList.add('active');
+  if (page === 'dashboard') renderDashboardCharts();
+  if (page === 'workers') renderWorkers('all');
+  if (page === 'attendance') renderAttendanceChart();
+  if (page === 'payroll') renderPayrollChart();
+}
+
+// ---- WORKER DATA ----
+const workers = [
+  {name:'Tigist Haile',id:'YRG-001',type:'seasonal',section:'A',week:'384 kg',season:'1,840 kg',status:'active'},
+  {name:'Bekele Girma',id:'YRG-002',type:'permanent',section:'B',week:'6 days',season:'Permanent',status:'active'},
+  {name:'Almaz Wolde',id:'YRG-003',type:'seasonal',section:'C',week:'285 kg',season:'1,210 kg',status:'active'},
+  {name:'Dawit Tadesse',id:'YRG-004',type:'supervisors',section:'A',week:'6 days',season:'Supervisor',status:'active'},
+  {name:'Meron Kebede',id:'YRG-005',type:'seasonal',section:'B',week:'306 kg',season:'1,480 kg',status:'active'},
+  {name:'Yonas Bekele',id:'YRG-006',type:'permanent',section:'C',week:'6 days',season:'Permanent',status:'active'},
+  {name:'Hiwot Tesfaye',id:'YRG-007',type:'seasonal',section:'D',week:'211 kg',season:'880 kg',status:'leave'},
+  {name:'Solomon Desta',id:'YRG-008',type:'supervisors',section:'B',week:'6 days',season:'Supervisor',status:'active'},
+  {name:'Liya Mulugeta',id:'YRG-009',type:'seasonal',section:'A',week:'268 kg',season:'1,130 kg',status:'active'},
+  {name:'Abera Tadele',id:'YRG-010',type:'permanent',section:'E',week:'6 days',season:'Permanent',status:'active'},
+  {name:'Senait Girma',id:'YRG-011',type:'seasonal',section:'C',week:'240 kg',season:'990 kg',status:'active'},
+  {name:'Temesgen Wolde',id:'YRG-012',type:'seasonal',section:'B',week:'—',season:'310 kg',status:'seasonal'},
+];
+
+function renderWorkers(filter) {
+  const list = filter === 'all' ? workers : workers.filter(w => w.type === filter);
+  const statusClass = {active:'badge-active',seasonal:'badge-seasonal',leave:'badge-leave'};
+  const typeLabel = {seasonal:'Seasonal',permanent:'Permanent',supervisors:'Supervisor'};
+  document.getElementById('workers-table').innerHTML = list.map(w => `
+    <tr class="border-b border-gray-50 hover:bg-gray-50 cursor-pointer">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">${w.name.split(' ').map(n=>n[0]).join('')}</div>
+          <div class="font-medium text-sm">${w.name}</div>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-500">${w.id}</td>
+      <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded font-medium ${w.type==='permanent'?'bg-green-100 text-green-800':w.type==='supervisors'?'bg-purple-100 text-purple-800':'bg-amber-100 text-amber-800'}">${typeLabel[w.type]}</span></td>
+      <td class="px-4 py-3 text-sm">Section ${w.section}</td>
+      <td class="px-4 py-3 text-right text-sm font-medium">${w.week}</td>
+      <td class="px-4 py-3 text-right text-sm">${w.season}</td>
+      <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded font-medium ${statusClass[w.status]}">${w.status.charAt(0).toUpperCase()+w.status.slice(1)}</span></td>
+    </tr>`).join('');
+}
+
+function filterWorkers(type, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderWorkers(type);
+}
+
+// ---- CHARTS ----
+let charts = {};
+
+function renderDashboardCharts() {
+  if (charts.harvest) charts.harvest.destroy();
+  if (charts.workerType) charts.workerType.destroy();
+
+  const days = ['20 May','21','22','23','24','25','26','27','28','29','30','31','1 Jun','2 Jun'];
+  const kg = [3800,4100,3600,4400,4200,3900,0,0,4000,4250,4380,4100,4520,4320];
+
+  charts.harvest = new Chart(document.getElementById('harvestChart'), {
+    type:'bar',
+    data:{
+      labels:days,
+      datasets:[{
+        data:kg,
+        backgroundColor: kg.map(v=>v===0?'#e5e7eb':'#16a34a'),
+        borderRadius:4,
+        borderSkipped:false,
+      }]
+    },
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
+
+  charts.workerType = new Chart(document.getElementById('workerTypeChart'), {
+    type:'doughnut',
+    data:{
+      labels:['Permanent','Seasonal','Supervisors'],
+      datasets:[{data:[34,58,8],backgroundColor:['#16a34a','#f59e0b','#6366f1'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{plugins:{legend:{display:false}},cutout:'72%'}
+  });
+}
+
+function renderAttendanceChart() {
+  if (charts.attendance) charts.attendance.destroy();
+  charts.attendance = new Chart(document.getElementById('attendanceWeekChart'), {
+    type:'bar',
+    data:{
+      labels:['Mon 27','Tue 28','Wed 29','Thu 30','Fri 31','Sat 1','Sun 2'],
+      datasets:[
+        {label:'Present',data:[82,85,80,88,84,79,87],backgroundColor:'#16a34a',borderRadius:3},
+        {label:'Absent',data:[12,9,14,8,11,13,9],backgroundColor:'#fca5a5',borderRadius:3},
+      ]
+    },
+    options:{plugins:{legend:{position:'top',labels:{font:{size:11}}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,grid:{color:'#f3f4f6'}}}}
+  });
+}
+
+function renderPayrollChart() {
+  if (charts.payroll) charts.payroll.destroy();
+  charts.payroll = new Chart(document.getElementById('payrollChart'), {
+    type:'line',
+    data:{
+      labels:['Week 1','Week 2','Week 3','Week 4 (est)'],
+      datasets:[{
+        label:'ETB Payroll',
+        data:[128000,135400,142800,140000],
+        borderColor:'#16a34a',
+        backgroundColor:'rgba(22,163,74,0.08)',
+        tension:0.4,fill:true,pointRadius:5,pointBackgroundColor:'#16a34a'
+      }]
+    },
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}
+  });
+}
+
+// ---- PLOT DETAIL ----
+const plotData = {
+  'A1':{ha:'2.4 ha',variety:'Heirloom Typica',altitude:'1,980m',status:'Active',pickers:12,today:'480 kg',season:'4,210 kg',supervisor:'Dawit T.'},
+  'A2':{ha:'2.1 ha',variety:'Heirloom Typica',altitude:'1,990m',status:'Active',pickers:11,today:'400 kg',season:'3,850 kg',supervisor:'Dawit T.'},
+  'A3':{ha:'2.6 ha',variety:'Heirloom Kurume',altitude:'2,010m',status:'Active',pickers:14,today:'320 kg',season:'4,640 kg',supervisor:'Dawit T.'},
+  'B1':{ha:'2.8 ha',variety:'Heirloom Dega',altitude:'1,960m',status:'Active',pickers:10,today:'290 kg',season:'3,100 kg',supervisor:'Solomon D.'},
+  'B2':{ha:'2.3 ha',variety:'Heirloom Dega',altitude:'1,950m',status:'Active',pickers:11,today:'410 kg',season:'3,720 kg',supervisor:'Solomon D.'},
+  'B3':{ha:'2.5 ha',variety:'Heirloom Typica',altitude:'1,940m',status:'Active',pickers:9,today:'310 kg',season:'2,980 kg',supervisor:'Solomon D.'},
+  'C1':{ha:'3.1 ha',variety:'Heirloom Kurume',altitude:'2,050m',status:'Active',pickers:0,today:'Pending sync',season:'5,100 kg',supervisor:'Yonas B.'},
+  'C2':{ha:'2.7 ha',variety:'Heirloom Typica',altitude:'2,060m',status:'Active',pickers:8,today:'280 kg',season:'4,400 kg',supervisor:'Yonas B.'},
+  'C3':{ha:'2.2 ha',variety:'Heirloom Dega',altitude:'2,070m',status:'Active',pickers:7,today:'220 kg',season:'3,200 kg',supervisor:'Yonas B.'},
+  'D1':{ha:'2.9 ha',variety:'Heirloom Typica',altitude:'1,920m',status:'Resting',pickers:0,today:'—',season:'0 kg (resting)',supervisor:'—'},
+  'D2':{ha:'2.4 ha',variety:'Heirloom Kurume',altitude:'1,910m',status:'Resting',pickers:0,today:'—',season:'0 kg (resting)',supervisor:'—'},
+  'E1':{ha:'3.2 ha',variety:'Heirloom Dega',altitude:'1,870m',status:'Active',pickers:8,today:'250 kg',season:'2,400 kg',supervisor:'Abera T.'},
+  'E2':{ha:'2.8 ha',variety:'Heirloom Typica',altitude:'1,880m',status:'Active',pickers:9,today:'270 kg',season:'2,600 kg',supervisor:'Abera T.'},
+  'E3':{ha:'2.5 ha',variety:'Heirloom Kurume',altitude:'1,890m',status:'Active',pickers:7,today:'190 kg',season:'1,900 kg',supervisor:'Abera T.'},
+};
+
+function showPlot(id) {
+  const p = plotData[id];
+  if (!p) return;
+  const isResting = p.status === 'Resting';
+  document.getElementById('plot-detail-content').innerHTML = `
+    <div class="mb-4">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-2xl font-bold">Plot ${id}</span>
+        <span class="text-xs px-2 py-0.5 rounded font-medium ${isResting?'bg-gray-100 text-gray-600':'bg-green-100 text-green-700'}">${p.status}</span>
+      </div>
+      <div class="text-xs text-gray-400">${p.variety} · ${p.altitude} asl</div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+      <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-400 mb-1">Area</div><div class="font-semibold">${p.ha}</div></div>
+      <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-400 mb-1">Active Pickers</div><div class="font-semibold">${p.pickers}</div></div>
+      <div class="bg-green-50 rounded-lg p-3"><div class="text-xs text-gray-400 mb-1">Today's Harvest</div><div class="font-semibold text-green-700">${p.today}</div></div>
+      <div class="bg-gray-50 rounded-lg p-3"><div class="text-xs text-gray-400 mb-1">Season Total</div><div class="font-semibold">${p.season}</div></div>
+    </div>
+    <div class="text-sm"><span class="text-gray-400">Supervisor:</span> <span class="font-medium">${p.supervisor}</span></div>
+    <button class="mt-4 w-full border border-green-200 text-green-700 py-2 rounded-lg text-sm font-medium hover:bg-green-50">View Full History</button>
+  `;
+}
+
+// ---- INIT ----
+renderDashboardCharts();
+renderWorkers('all');
+</script>
+</body>
+</html>
